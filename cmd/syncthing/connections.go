@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/protocol"
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
+	"github.com/syncthing/syncthing/internal/relay"
 )
 
 func listenConnect(myID protocol.DeviceID, m *model.Model, tlsCfg *tls.Config) {
@@ -231,11 +232,32 @@ func dialTLS(m *model.Model, conns chan *tls.Conn, tlsCfg *tls.Config) {
 				}
 
 				conn, err := net.DialTCP("tcp", nil, raddr)
+
 				if err != nil {
 					if debugNet {
 						l.Debugln(err)
 					}
-					continue
+
+					// If we didn't get a proper connection via a direct connect,
+					// try to connect via another device.
+					if conn == nil {
+						for deviceID2, _ := range cfg.Devices() {
+							if m.ConnectedTo(deviceID2) {
+								//If we are connected to a device, we can attempt to relay via it
+								l.Debugln("Attempt to connect to", deviceID.String(), "via Relay Device", deviceID2.String())
+								conn = relay.ConnectToRelay(deviceID2.String(), deviceID.String(), cfg, m, tlsCfg)
+								if conn != nil {
+									l.Infoln("Connection via Relay Successful.")
+									// successful relay connection
+									break
+								}
+							}
+						}
+						if conn == nil {
+							//Both connection types (standand and relay) failed
+							continue
+						}
+					}
 				}
 
 				setTCPOptions(conn)

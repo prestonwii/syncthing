@@ -34,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/internal/events"
 	"github.com/syncthing/syncthing/internal/model"
 	"github.com/syncthing/syncthing/internal/osutil"
+	"github.com/syncthing/syncthing/internal/relay"
 	"github.com/syncthing/syncthing/internal/symlinks"
 	"github.com/syncthing/syncthing/internal/upgrade"
 	"github.com/syncthing/syncthing/internal/upnp"
@@ -586,6 +587,10 @@ func syncthingMain() {
 			l.Infof("Device %s is %q at %v", device.DeviceID, device.Name, device.Addresses)
 		}
 	}
+
+	// Relay
+
+	go relay.SpawnRelayListener(m, discoverer)
 
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
